@@ -1,0 +1,13 @@
+# roles/wireguard/templates/wg0.conf.j2
+[Interface]
+Address = 10.10.10.1/24
+SaveConfig = true
+ListenPort = 51820
+PrivateKey = {{ lookup('file', '/etc/wireguard/server_private.key') }}
+PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+# --- Peer 1 (Contoh: Laptop Clients) ---
+# [Peer]
+# PublicKey = PASTE_YOUR_CLIENT_PUBLIC_KEY_HERE
+# AllowedIPs = 10.10.10.2/32

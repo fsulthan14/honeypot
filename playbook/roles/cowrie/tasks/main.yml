@@ -1,0 +1,117 @@
+# roles/cowrie/tasks/main.yml
+---
+- name: 1. Ensure a dedicated user for Cowrie exists
+  become: yes
+  user:
+    name: cowrie
+    shell: /bin/bash
+    home: /home/cowrie
+    create_home: yes
+  tags:
+    - cowrie
+
+- name: 2. Ensure Cowrie dependencies are installed
+  become: yes
+  apt:
+    name: ['libssl-dev', 'libffi-dev', 'python3-dev', 'python3-virtualenv', 'virtualenv', 'authbind']
+    state: present
+  tags:
+    - cowrie
+
+- name: 3. Ensure Cowrie repository is cloned
+  become: yes
+  become_user: cowrie
+  git:
+    repo: 'https://github.com/cowrie/cowrie.git'
+    dest: /home/cowrie/cowrie
+    version: master
+  tags:
+    - cowrie
+
+- name: 4. Ensure Python virtual environment for Cowrie exists
+  become: yes
+  become_user: cowrie
+  command:
+    cmd: virtualenv cowrie-env
+    chdir: /home/cowrie/cowrie
+    creates: /home/cowrie/cowrie/cowrie-env/bin/activate
+  tags:
+    - cowrie
+
+- name: 5. Ensure Python dependencies are installed in the virtual environment
+  become: yes
+  become_user: cowrie
+  pip:
+    requirements: /home/cowrie/cowrie/requirements.txt
+    virtualenv: /home/cowrie/cowrie/cowrie-env
+  tags:
+    - cowrie
+
+- name: 6. Ensure the main configuration file exists
+  become: yes
+  become_user: cowrie
+  command:
+    cmd: cp cowrie.cfg.dist cowrie.cfg
+    chdir: /home/cowrie/cowrie/etc
+    creates: /home/cowrie/cowrie/etc/cowrie.cfg
+  tags:
+    - cowrie
+
+- name: 7. Ensure real SSH listens on a non-standard port (e.g., 2222)
+  become: yes
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?Port '
+    line: 'Port 2222'
+    state: present
+  notify: restart sshd
+  tags:
+    - cowrie
+
+- name: 8. Ensure Cowrie is configured to listen on the standard SSH port (22)
+  become: yes
+  become_user: cowrie
+  lineinfile:
+    path: /home/cowrie/cowrie/etc/cowrie.cfg
+    regexp: '^listen_endpoints = ssh'
+    line: 'listen_endpoints = tcp:22:interface=0.0.0.0'
+    state: present
+  tags:
+    - cowrie
+
+- name: 9. Ensure Cowrie can bind to privileged port 22 using authbind
+  become: yes
+  block:
+    - name: Create authbind configuration for port 22
+      file:
+        path: /etc/authbind/byport/22
+        state: touch
+        owner: cowrie
+        group: cowrie
+        mode: '0755'
+    - name: Configure Cowrie to use authbind
+      lineinfile:
+        path: /home/cowrie/cowrie/bin/cowrie
+        regexp: '^PYTHON_VERSION='
+        line: 'AUTHBIND_ENABLED=1\nPYTHON_VERSION='
+        insertbefore: BOF # Insert at the Beginning Of File
+  tags:
+    - cowrie
+
+- name: 10. Ensure Cowrie runs as a systemd service
+  become: yes
+  block:
+    - name: Copy Cowrie systemd service file
+      template:
+        src: cowrie.service.j2
+        dest: /etc/systemd/system/cowrie.service
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+    - name: Enable and start the Cowrie service
+      systemd:
+        name: cowrie
+        state: started
+        enabled: yes
+  tags:
+    - cowrie

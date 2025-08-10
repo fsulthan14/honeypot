@@ -1,0 +1,13 @@
+# playbook/honeypot.yml
+---
+- name: Deploy and Configure Integrated Honeypot System
+  hosts: honeypot_servers
+
+  roles:
+    - role: common
+    - role: wireguard   # <-- Tambahkan di sini
+    - role: cowrie
+    - role: dionaea
+
+  handlers:
+    - include: roles/cowrie/handlers/main.yml

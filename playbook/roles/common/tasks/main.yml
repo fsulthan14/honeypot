@@ -1,0 +1,47 @@
+# roles/common/tasks/main.yml
+---
+- name: 1. Update APT package cache and upgrade the system
+  become: yes
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+    upgrade: dist
+  tags: [common, packages]
+
+- name: 2. Install essential security and utility packages
+  become: yes
+  apt:
+    name:
+      - git
+      - python3-pip
+      - ufw
+      - fail2ban
+    state: present
+  tags: [common, packages]
+
+- name: 3. Configure and enable the Uncomplicated Firewall (UFW)
+  become: yes
+  block:
+    - name: Allow essential incoming traffic (SSH and WireGuard)
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+      loop:
+        - '22/tcp'      # Port SSH asli untuk manajemen
+        - '51820/udp'   # Port standar WireGuard
+      tags: [common, firewall]
+
+    - name: Set default policies and enable UFW
+      community.general.ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+      tags: [common, firewall]
+
+- name: 4. Ensure fail2ban service is active and enabled on boot
+  become: yes
+  systemd:
+    name: fail2ban
+    state: started
+    enabled: yes
+  tags: [common, service]

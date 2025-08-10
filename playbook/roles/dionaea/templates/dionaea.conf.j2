@@ -1,0 +1,19 @@
+[logging]
+# Definisi level logging
+levels = "all,error"
+# Tujuan output log
+handlers = "file,log_sql"
+
+[handler:file]
+# Handler untuk menulis log ke file
+type = "file"
+path = "/usr/local/var/dionaea/log/dionaea.log"
+
+[handler:log_sql]
+# Handler untuk menyimpan data serangan ke database sqlite
+type = "log_sql"
+path = "/usr/local/var/dionaea/log/dionaea.sqlite"
+
+[services]
+# Mengaktifkan layanan SMB sebagai jebakan
+smb = { enabled = true, modules = ["drs"] }

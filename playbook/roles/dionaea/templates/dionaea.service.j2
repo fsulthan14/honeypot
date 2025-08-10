@@ -1,0 +1,10 @@
+[Unit]
+Description=Dionaea Honeypot
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/dionaea -c /usr/local/etc/dionaea/dionaea.conf -w /usr/local/var/dionaea -u dionaea -g dionaea
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

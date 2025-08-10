@@ -1,0 +1,100 @@
+# roles/dionaea/tasks/main.yml
+---
+- name: 1. Ensure a dedicated user for Dionaea exists
+  become: yes
+  user:
+    name: dionaea
+    shell: /bin/false
+    system: yes
+  tags:
+    - dionaea
+
+- name: 2. Install Dionaea dependencies
+  become: yes
+  apt:
+    name:
+      - git
+      - autoconf
+      - libtool
+      - libssl-dev
+      - libudns-dev
+      - libglib2.0-dev
+      - libpcap-dev
+      - libcurl4-gnutls-dev
+      - python3
+      - python3-pip
+      - python3-yaml
+  tags:
+    - dionaea
+
+- name: 3. Ensure Dionaea repository is cloned
+  become: yes
+  git:
+    repo: 'https://github.com/DinoTools/dionaea.git'
+    dest: /opt/dionaea
+    version: master
+  tags:
+    - dionaea
+
+- name: 4. Ensure Dionaea build scripts are configured
+  become: yes
+  command:
+    cmd: "{{ item }}"
+    chdir: /opt/dionaea
+    creates: /opt/dionaea/Makefile
+  loop:
+    - autoreconf -vi
+    - ./configure
+  tags:
+    - dionaea
+
+- name: 5. Ensure Dionaea is compiled and installed
+  become: yes
+  command:
+    cmd: make && make install
+    chdir: /opt/dionaea
+    creates: /usr/local/bin/dionaea
+  tags:
+    - dionaea
+
+- name: 6. Ensure necessary directories for Dionaea exist
+  become: yes
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: dionaea
+    group: dionaea
+  loop:
+    - /usr/local/etc/dionaea
+    - /usr/local/var/dionaea
+    - /usr/local/var/dionaea/log
+    - /usr/local/var/dionaea/bistreams
+    - /usr/local/var/dionaea/binaries
+  tags:
+    - dionaea
+
+- name: 7. Ensure Dionaea configuration file is in place
+  become: yes
+  template:
+    src: dionaea.conf.j2
+    dest: /usr/local/etc/dionaea/dionaea.conf
+  tags:
+    - dionaea
+
+- name: 8. Ensure Dionaea runs as a systemd service
+  become: yes
+  block:
+    - name: Copy Dionaea systemd service file
+      template:
+        src: dionaea.service.j2
+        dest: /etc/systemd/system/dionaea.service
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+    - name: Enable and start the Dionaea service
+      systemd:
+        name: dionaea
+        state: started
+        enabled: yes
+  tags:
+    - dionaea
