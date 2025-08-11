@@ -11,6 +11,7 @@
       - libpython3-dev
       - python3-minimal
       - authbind
+      - virtualenv
     state: present
     update_cache: yes
   become: yes
@@ -55,11 +56,10 @@
   become: yes
 
 - name: Create Python virtual environment manually
-  command: sudo -u cowrie python3 -m venv /home/cowrie/cowrie-env
+  command: sudo -u cowrie python3 -m venv /home/cowrie/cowrie/cowrie-env
   args:
     creates: /home/cowrie/cowrie/cowrie-env/bin/activate
   become: yes
-  become_user: root
 
 - name: Upgrade pip in the virtual environment
   pip:
@@ -67,16 +67,22 @@
     state: latest
     virtualenv: /home/cowrie/cowrie/cowrie-env
   become: yes
-  become_user: root
 
 - name: Install Cowrie dependencies from requirements.txt
   pip:
     requirements: /home/cowrie/cowrie/requirements.txt
-    virtualenv: /home/cowrie/cowrie-env
+    virtualenv: /home/cowrie/cowrie/cowrie-env
     virtualenv_python: python3
     state: latest
   become: yes
-  become_user: root
+
+- name: Set ownership (again) of cowrie directory
+  file:
+    path: /home/cowrie/
+    owner: cowrie
+    group: cowrie
+    recurse: yes
+  become: yes
 
 - name: Copy cowrie.cfg configuration file
   copy:

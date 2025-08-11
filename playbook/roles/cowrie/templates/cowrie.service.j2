@@ -1,17 +1,20 @@
 [Unit]
-Description=Cowrie SSH honeypot service
+Description=Cowrie SSH Honeypot Service
 After=network.target
 
 [Service]
+Type=forking
 User=cowrie
 Group=cowrie
-
-Restart=always
-RestartSec=5
-
 WorkingDirectory=/home/cowrie/cowrie
 
+PIDFile=/home/cowrie/cowrie/var/run/cowrie.pid
+
 ExecStart=/bin/bash -c 'source /home/cowrie/cowrie/cowrie-env/bin/activate && exec authbind --deep /home/cowrie/cowrie/bin/cowrie start'
+ExecStop=/bin/bash -c 'source /home/cowrie/cowrie/cowrie-env/bin/activate && exec /home/cowrie/cowrie/bin/cowrie stop'
+
+Restart=always
+RestartSec=5s
 
 StandardOutput=journal
 StandardError=journal
