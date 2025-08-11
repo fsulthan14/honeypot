@@ -1,0 +1,20 @@
+common_packages:
+  - git
+  - python3-pip
+  - ufw
+  - fail2ban
+
+ufw_rules:
+  - { port: 22, proto: tcp }
+  - { port: 51820, proto: udp }
+  - { port: 2222, proto: tcp }
+  - { port: 445, proto: tcp }
+  - { port: 139, proto: tcp }
+
+fail2ban_jail_local: |
+  [sshd]
+  enabled = true
+  port = ssh
+  backend = systemd
+  logpath = %(sshd_log)s
+  maxretry = 5

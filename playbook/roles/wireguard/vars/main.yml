@@ -1,0 +1,24 @@
+wireguard_interface: wg0
+wireguard_config_path: "/etc/wireguard/{{ wireguard_interface }}.conf"
+wireguard_private_key_path: "/etc/wireguard/privatekey"
+wireguard_public_key_path: "/etc/wireguard/publickey"
+wireguard_address: "10.10.10.1/24"
+wireguard_listen_port: 51820
+
+# Peers list — bisa satu atau lebih
+wireguard_peers:
+  #- name: "peer1-vps-singapore"
+  #  public_key: "aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890abcd="
+  #  allowed_ips: "10.10.10.2/32"
+  #  endpoint: "sg-vps.example.com:51820"
+
+  #- name: "peer2-vps-jakarta"
+  #  public_key: "zYxWvUtSrQpOnMlKjIhGfEdCbA0987654321abcd="
+  #  allowed_ips: "10.10.10.3/32"
+  #  endpoint: "id-vps.example.com:51820"
+
+  #- name: "peer3-client-laptop"
+  #  public_key: "mNoPqRsTuVwXyZaBcDeFgHiJkL1234567890abcd="
+  #  allowed_ips: "10.10.10.4/32"
+  #  # endpoint tidak wajib jika peer ini client yang hanya connect ke server
+

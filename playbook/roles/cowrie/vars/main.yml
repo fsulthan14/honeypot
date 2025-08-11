@@ -1,0 +1,6 @@
+---
+cowrie_group: cowrie
+cowrie_home: /home/cowrie
+cowrie_working_dir: "{{ cowrie_home }}/{{ cowrie_user }}"
+cowrie_repo_url: https://github.com/cowrie/cowrie.git
+cowrie_repo_version: main

@@ -1,13 +1,21 @@
 [Unit]
-Description=Cowrie SSH/Telnet Honeypot
+Description=Cowrie SSH honeypot service
 After=network.target
 
 [Service]
 User=cowrie
 Group=cowrie
+
+Restart=always
+RestartSec=5
+
 WorkingDirectory=/home/cowrie/cowrie
-ExecStart=/usr/bin/authbind --deep /home/cowrie/cowrie/cowrie-env/bin/python3 -m cowrie.core.server
-Restart=on-failure
+
+ExecStart=/bin/bash -c 'source /home/cowrie/cowrie/cowrie-env/bin/activate && exec authbind --deep /home/cowrie/cowrie/bin/cowrie start'
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cowrie
 
 [Install]
 WantedBy=multi-user.target

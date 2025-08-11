@@ -1,5 +1,12 @@
-- name: restart sshd
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
   become: yes
-  service:
-    name: sshd
+
+- name: Restart cowrie
+  systemd:
+    name: cowrie
     state: restarted
+    enabled: yes
+  become: yes
+

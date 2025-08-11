@@ -1,13 +1,14 @@
-# playbook/honeypot.yml
 ---
-- name: Deploy and Configure Integrated Honeypot System
-  hosts: honeypot_servers
-
+- name: Deploy Honeypot Environment (VPS/cloud targets)
+  hosts: honeypot
+  become: true
+  
   roles:
     - role: common
-    - role: wireguard   # <-- Tambahkan di sini
+      tags: common
+    - role: wireguard
+      tags: wireguard
     - role: cowrie
+      tags: cowrie
     - role: dionaea
-
-  handlers:
-    - include: roles/cowrie/handlers/main.yml
+      tags: dionaea

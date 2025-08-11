@@ -1,54 +1,50 @@
-# roles/wireguard/tasks/main.yml
 ---
-- name: 1. Ensure WireGuard package is installed
-  become: yes
+- name: Install WireGuard
   apt:
     name: wireguard
     state: present
-  tags: [wireguard]
 
-- name: 2. Ensure WireGuard config directory exists with secure permissions
-  become: yes
+- name: Ensure WireGuard config directory exists
   file:
     path: /etc/wireguard
     state: directory
-    owner: root
-    group: root
     mode: '0700'
-  tags: [wireguard]
 
-- name: 3. Ensure server private and public keys are generated
-  become: yes
-  shell: |
-    umask 077
-    wg genkey | tee /etc/wireguard/server_private.key | wg pubkey > /etc/wireguard/server_public.key
+- name: Generate WireGuard private key if not exists
+  command: wg genkey
+  register: wg_private_key
   args:
-    creates: /etc/wireguard/server_private.key
-  tags: [wireguard]
+    creates: "{{ wireguard_private_key_path }}"
 
-- name: 4. Ensure WireGuard configuration file is in place from template
-  become: yes
+- name: Save WireGuard private key
+  copy:
+    content: "{{ wg_private_key.stdout }}"
+    dest: "{{ wireguard_private_key_path }}"
+    mode: '0600'
+  when: wg_private_key is defined
+
+- name: Generate WireGuard public key
+  command: wg pubkey
+  register: wg_public_key
+  args:
+    stdin: "{{ wg_private_key.stdout }}"
+  when: wg_private_key is defined
+
+- name: Save WireGuard public key
+  copy:
+    content: "{{ wg_public_key.stdout }}"
+    dest: "{{ wireguard_public_key_path }}"
+    mode: '0644'
+  when: wg_public_key is defined
+
+- name: Deploy WireGuard configuration
   template:
     src: wg0.conf.j2
-    dest: /etc/wireguard/wg0.conf
-    owner: root
-    group: root
+    dest: "{{ wireguard_config_path }}"
     mode: '0600'
-  tags: [wireguard]
 
-- name: 5. Ensure IP forwarding is enabled in the kernel
-  become: yes
-  sysctl:
-    name: net.ipv4.ip_forward
-    value: '1'
-    state: present
-    reload: yes
-  tags: [wireguard]
-
-- name: 6. Ensure WireGuard service is active and enabled on boot
-  become: yes
+- name: Enable and start WireGuard
   systemd:
-    name: wg-quick@wg0
-    state: started
+    name: "wg-quick@{{ wireguard_interface }}"
     enabled: yes
-  tags: [wireguard]
+    state: started

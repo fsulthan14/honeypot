@@ -1,47 +1,59 @@
-# roles/common/tasks/main.yml
 ---
-- name: 1. Update APT package cache and upgrade the system
-  become: yes
+- name: Update APT package cache and upgrade the system
   apt:
     update_cache: yes
     cache_valid_time: 3600
     upgrade: dist
   tags: [common, packages]
 
-- name: 2. Install essential security and utility packages
-  become: yes
+- name: Install essential security and utility packages
   apt:
-    name:
-      - git
-      - python3-pip
-      - ufw
-      - fail2ban
+    name: "{{ common_packages }}"
     state: present
   tags: [common, packages]
 
-- name: 3. Configure and enable the Uncomplicated Firewall (UFW)
-  become: yes
-  block:
-    - name: Allow essential incoming traffic (SSH and WireGuard)
-      community.general.ufw:
-        rule: allow
-        port: "{{ item }}"
-      loop:
-        - '22/tcp'      # Port SSH asli untuk manajemen
-        - '51820/udp'   # Port standar WireGuard
-      tags: [common, firewall]
+- name: Deploy minimal Fail2Ban configuration
+  copy:
+    dest: /etc/fail2ban/jail.local
+    content: "{{ fail2ban_jail_local }}"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart fail2ban
+  tags: [common, security]
 
-    - name: Set default policies and enable UFW
-      community.general.ufw:
-        state: enabled
-        policy: deny
-        direction: incoming
-      tags: [common, firewall]
+- name: Ensure fail2ban package present (re-check)
+  apt:
+    name: fail2ban
+    state: present
+  tags: [common, service]
 
-- name: 4. Ensure fail2ban service is active and enabled on boot
-  become: yes
+- name: Ensure fail2ban service is running and enabled
   systemd:
     name: fail2ban
     state: started
     enabled: yes
   tags: [common, service]
+
+- name: Configure and enable UFW rules
+  block:
+    - name: Ensure UFW is installed
+      apt:
+        name: ufw
+        state: present
+
+    - name: Allow configured UFW rules
+      community.general.ufw:
+        rule: allow
+        port: "{{ item.port }}"
+        proto: "{{ item.proto }}"
+      loop: "{{ ufw_rules }}"
+      notify: reload ufw
+
+    - name: Set default UFW policy (enable UFW)
+      community.general.ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+      notify: reload ufw
+  tags: [common, firewall]

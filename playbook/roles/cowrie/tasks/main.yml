@@ -1,117 +1,102 @@
-# roles/cowrie/tasks/main.yml
 ---
-- name: 1. Ensure a dedicated user for Cowrie exists
+- name: Install system dependencies for Cowrie
+  apt:
+    name:
+      - git
+      - python3-pip
+      - python3-venv
+      - libssl-dev
+      - libffi-dev
+      - build-essential
+      - libpython3-dev
+      - python3-minimal
+      - authbind
+    state: present
+    update_cache: yes
   become: yes
+
+- name: Create cowrie user
   user:
     name: cowrie
-    shell: /bin/bash
     home: /home/cowrie
+    shell: /bin/bash
     create_home: yes
-  tags:
-    - cowrie
-
-- name: 2. Ensure Cowrie dependencies are installed
   become: yes
-  apt:
-    name: ['libssl-dev', 'libffi-dev', 'python3-dev', 'python3-virtualenv', 'virtualenv', 'authbind']
-    state: present
-  tags:
-    - cowrie
 
-- name: 3. Ensure Cowrie repository is cloned
+- name: Create authbind file for port 22
+  file:
+    path: /etc/authbind/byport/22
+    state: touch
+    owner: cowrie
+    group: cowrie
+    mode: '0770'
   become: yes
-  become_user: cowrie
+
+- name: Add /home/cowrie/cowrie to git safe.directory
+  command: git config --global --add safe.directory /home/cowrie/cowrie
+  become: yes
+  become_user: root
+  changed_when: false
+
+- name: Clone cowrie repo to /home/cowrie/cowrie
   git:
-    repo: 'https://github.com/cowrie/cowrie.git'
+    repo: http://github.com/cowrie/cowrie
     dest: /home/cowrie/cowrie
-    version: master
-  tags:
-    - cowrie
-
-- name: 4. Ensure Python virtual environment for Cowrie exists
+    version: main
+    update: yes
   become: yes
-  become_user: cowrie
-  command:
-    cmd: virtualenv cowrie-env
-    chdir: /home/cowrie/cowrie
+
+- name: Set ownership of cowrie directory
+  file:
+    path: /home/cowrie/
+    owner: cowrie
+    group: cowrie
+    recurse: yes
+  become: yes
+
+- name: Create Python virtual environment manually
+  command: sudo -u cowrie python3 -m venv /home/cowrie/cowrie-env
+  args:
     creates: /home/cowrie/cowrie/cowrie-env/bin/activate
-  tags:
-    - cowrie
-
-- name: 5. Ensure Python dependencies are installed in the virtual environment
   become: yes
-  become_user: cowrie
+  become_user: root
+
+- name: Upgrade pip in the virtual environment
+  pip:
+    name: pip
+    state: latest
+    virtualenv: /home/cowrie/cowrie/cowrie-env
+  become: yes
+  become_user: root
+
+- name: Install Cowrie dependencies from requirements.txt
   pip:
     requirements: /home/cowrie/cowrie/requirements.txt
-    virtualenv: /home/cowrie/cowrie/cowrie-env
-  tags:
-    - cowrie
-
-- name: 6. Ensure the main configuration file exists
+    virtualenv: /home/cowrie/cowrie-env
+    virtualenv_python: python3
+    state: latest
   become: yes
-  become_user: cowrie
-  command:
-    cmd: cp cowrie.cfg.dist cowrie.cfg
-    chdir: /home/cowrie/cowrie/etc
-    creates: /home/cowrie/cowrie/etc/cowrie.cfg
-  tags:
-    - cowrie
+  become_user: root
 
-- name: 7. Ensure real SSH listens on a non-standard port (e.g., 2222)
+- name: Copy cowrie.cfg configuration file
+  copy:
+    src: cowrie.cfg.j2
+    dest: /home/cowrie/cowrie/etc/cowrie.cfg
+    owner: cowrie
+    group: cowrie
+    mode: '0644'
   become: yes
-  lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?Port '
-    line: 'Port 2222'
-    state: present
-  notify: restart sshd
-  tags:
-    - cowrie
+  notify:
+    - Restart cowrie
 
-- name: 8. Ensure Cowrie is configured to listen on the standard SSH port (22)
+- name: Copy cowrie systemd service file
+  template:
+    src: cowrie.service.j2
+    dest: /etc/systemd/system/cowrie.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart cowrie
   become: yes
-  become_user: cowrie
-  lineinfile:
-    path: /home/cowrie/cowrie/etc/cowrie.cfg
-    regexp: '^listen_endpoints = ssh'
-    line: 'listen_endpoints = tcp:22:interface=0.0.0.0'
-    state: present
-  tags:
-    - cowrie
-
-- name: 9. Ensure Cowrie can bind to privileged port 22 using authbind
-  become: yes
-  block:
-    - name: Create authbind configuration for port 22
-      file:
-        path: /etc/authbind/byport/22
-        state: touch
-        owner: cowrie
-        group: cowrie
-        mode: '0755'
-    - name: Configure Cowrie to use authbind
-      lineinfile:
-        path: /home/cowrie/cowrie/bin/cowrie
-        regexp: '^PYTHON_VERSION='
-        line: 'AUTHBIND_ENABLED=1\nPYTHON_VERSION='
-        insertbefore: BOF # Insert at the Beginning Of File
-  tags:
-    - cowrie
-
-- name: 10. Ensure Cowrie runs as a systemd service
-  become: yes
-  block:
-    - name: Copy Cowrie systemd service file
-      template:
-        src: cowrie.service.j2
-        dest: /etc/systemd/system/cowrie.service
-    - name: Reload systemd daemon
-      systemd:
-        daemon_reload: yes
-    - name: Enable and start the Cowrie service
-      systemd:
-        name: cowrie
-        state: started
-        enabled: yes
-  tags:
-    - cowrie
